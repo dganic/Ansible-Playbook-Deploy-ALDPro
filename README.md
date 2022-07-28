@@ -26,7 +26,9 @@ Example
 ----------------
 
 __ansible-playbook -l dc01 deploy-aldpro.yml --tags="first_dc"__ - deploy first Domain Controller
+
 __ansible-playbook -l repo deploy-aldpro.yml --tags="client-server"__ - deploy aldpro client to servers ALD Pro role
+
 __ansible-playbook -l client-1 deploy-aldpro.yml --tags="client"__ - deploy aldpro client to clients
 
 License
