@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+
+auto lo
+iface lo inet loopback
+
+auto {{ ansible_default_ipv4.interface }}
+iface {{ ansible_default_ipv4.interface }} inet static
+  address {{ ansible_default_ipv4.address }}
+  netmask {{ ansible_default_ipv4.netmask }}
+  gateway {{ ansible_default_ipv4.gateway }} 
+  dns-nameservers {{ hostvars[groups['dc_servers'][0]].ansible_host }} {{ hostvars[groups['dc_servers'][1]].ansible_host }} 172.31.104.24
+  dns-search {{ domain }}

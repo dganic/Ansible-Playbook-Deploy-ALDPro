@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+
+127.0.0.1 localhost.localdomain localhost
+{{ ansible_default_ipv4.address }} {{ fqdn_hostname }} {{ host_name }}
+127.0.1.1 {{ host_name }}

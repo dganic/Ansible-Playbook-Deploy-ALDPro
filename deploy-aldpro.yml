@@ -1,0 +1,250 @@
+---
+# 16.07.2022
+# A.Anishchenko
+# Simple playbook for deploy ALD Pro domain
+
+- name: Deploy ALD Pro domain on AstraLinux 1.7
+  hosts: all
+  become: true
+
+  vars:
+    supported_os:
+      - "Astra Linux 1.7_x86-64"
+    domain: ald.pro
+    host_name: "{{ inventory_hostname }}"
+    fqdn_hostname: "{{ host_name + '.' + domain }}"
+    aldpro_version: 1.0.0 
+  
+  tasks:
+    - name: Check supported distribution
+      fail:
+        msg: "Distribution {{ ansible_distribution + ' ' + ansible_distribution_version }} is not supported yet."
+      when: ansible_distribution + ' ' + ansible_distribution_version not in supported_os
+      tags:
+        - first_dc
+        - client-server
+        - client
+
+    # OpenNebula specific tasks
+
+    - name: Remove one-context package
+      apt:
+        name: one-context
+        state: absent
+        purge: yes
+      tags: opennebula
+
+    - name: Install resolvconf package
+      apt:
+        name: resolvconf
+        state: present
+      tags:
+        - first_dc
+        - client-server
+
+    - name:  Check current security level
+      command: astra-modeswitch get
+      register: security_level
+      tags:
+        - first_dc
+        - client-server  
+    
+    - name:  Check the status of the mandatory integrity control
+      command: astra-mic-control is-enabled
+      ignore_errors: true
+      register: mic_status
+      tags:
+        - first_dc
+        - client-server  
+
+    - name:  Check the status of the mandatory access control
+      command: astra-mac-control is-enabled
+      ignore_errors: true
+      register: mac_status
+      tags:
+        - first_dc
+        - client-server  
+
+    - name: Print current security level
+      debug: 
+        var: security_level.stdout
+      tags:
+        - first_dc
+        - client-server  
+
+    - name: Print current mandatory integrity control
+      debug: 
+        var: mic_status.stdout
+      tags:
+        - first_dc
+        - client-server  
+    
+    - name: Print current mandatory access control
+      debug: 
+        var: mac_status.stdout
+      tags:
+        - first_dc
+        - client-server  
+
+    - name: Change security level to maximum (Smolensk)
+      command: astra-modeswitch set 2
+      when: security_level.stdout != "2"
+      register: change_security_level
+      tags:
+        - first_dc
+        - client-server  
+
+    - name: Enable mandatory integrity control
+      command: astra-mic-control enable
+      when: mic_status.stdout != "ВКЛЮЧЕНО"
+      register: change_mic
+      tags:
+        - first_dc
+        - client-server
+
+    - name: Enable mandatory access control
+      command: astra-mac-control enable
+      when: mic_status.stdout != "ВКЛЮЧЕНО"
+      register: change_mac
+      tags:
+        - first_dc
+        - client-server
+
+    - name:  Check the hostname
+      command: hostname
+      register: check_hostname
+      tags:
+        - first_dc
+        - client-server  
+    
+    - name: Set a hostname
+      command: hostnamectl set-hostname {{ fqdn_hostname }}
+      when: check_hostname.stdout != "{{ fqdn_hostname }}"
+      register: change_hostname
+      tags:
+        - first_dc
+        - client-server
+    
+    - name: Generate /etc/hosts file
+      template:
+        src: ./files/etc/hosts.j2
+        dest: /etc/hosts
+      tags:
+        - first_dc
+        - client-server
+
+    - name: Add Astra Linux frozen repo to sources.list
+      template:
+        src: ./files/etc/apt/sources.list.j2
+        dest: /etc/apt/sources.list
+      tags:
+        - first_dc
+        - client-server
+    
+    - name: Add ALD Pro repo
+      template:
+        src: ./files/etc/apt/sources.list.d/aldpro.list.j2
+        dest: /etc/apt/sources.list.d/aldpro.list
+      tags:
+        - first_dc
+        - client-server
+        - client
+
+    - name: Add apt priority for ALD Pro repo
+      template:
+        src: ./files/etc/apt/preferences.d/aldpro.j2
+        dest: /etc/apt/preferences.d/aldpro
+      tags:
+        - first_dc
+        - client-server
+        - client
+
+    - name: Upgrade the OS
+      apt:
+       update_cache: yes
+       upgrade: yes
+      tags:
+        - first_dc
+        - client-server
+        - client
+     
+    - name: Change network settings
+      template:
+        src: ./files/etc/network/interfaces.j2
+        dest: /etc/network/interfaces
+      register: change_network
+      tags:
+        - first_dc
+        - client-server
+
+    - name: Generate /etc/resolv.conf file
+      template:
+        src: ./files/etc/resolv.conf.j2
+        dest: /etc/resolv.conf
+      tags:
+        - client
+
+    - name: Restart networking after changed network settings
+      service:
+        name: networking
+      when: change_network.changed
+      tags:
+        - first_dc
+        - client-server
+
+
+    - name: Reboot server after changed system settings
+      reboot:
+      when: (change_security_level is not skipped) or (change_mac is not skipped) or (change_mic is not skipped) or (change_hostname is not skipped)
+      tags:
+        - first_dc
+        - client-server
+
+    - name: Populate package facts
+      package_facts:
+      tags:
+        - first_dc
+        - client-server
+        - client
+
+    - name: Install aldpro-mp package
+      command: apt install -q -y aldpro-mp
+      environment:
+           DEBIAN_FRONTEND: noninteractive
+      when: not "aldpro-mp" in ansible_facts.packages
+      register: install_aldpro_pkg
+      tags:
+        - first_dc
+
+    - name: Install aldpro-client package
+      command: apt install -q -y aldpro-client
+      environment:
+           DEBIAN_FRONTEND: noninteractive
+      when: not "aldpro-client" in ansible_facts.packages
+      register: install_aldpro_pkg
+      tags:
+        - client-server
+        - client
+
+    - name: Deploy and configure first ALDPro domain controller 
+      command: /opt/rbta/aldpro/mp/bin/aldpro-server-install.sh -d {{ domain }} -n {{ host_name }} -p {{ aldpro_admin_password }} --no-reboot
+      when: install_aldpro_pkg is not skipped
+      register: deploy_aldpro
+      tags:
+        - first_dc
+
+    - name: Deploy and configure ALDpro client 
+      command: /opt/rbta/aldpro/client/bin/aldpro-client-installer -c {{ domain }} -u admin -p {{ aldpro_admin_password }} -d {{ host_name }} -i -f
+      when: install_aldpro_pkg is not skipped
+      register: deploy_aldpro
+      tags:
+        - client-server
+        - client
+
+    - name: Reboot server after deploy and configure ALD Pro domain
+      reboot:
+      when: deploy_aldpro is not skipped
+      tags:
+        - first_dc
+        - client-server
+        - client

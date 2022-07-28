@@ -1,0 +1,101 @@
+image:
+  name: $CI_REGISTRY_IMAGE/astralinux-ansible:1.7
+
+variables:
+  ANSIBLE_HOST_KEY_CHECKING: "False"
+  
+stages:
+  - deploy
+
+before_script:
+  # ansible.cfg can't be in world-writable directory
+  - chmod 700 ${CI_PROJECT_DIR}
+  - cd ${CI_PROJECT_DIR}
+
+deploy_first_dc:
+  stage: deploy
+  script:
+    - ansible-playbook -l dc01 deploy-aldpro.yml --tags="opennebula,first_dc"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_second_dc:
+  stage: deploy
+  script:
+    - ansible-playbook -l dc02 deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_monitoring:
+  stage: deploy
+  script:
+    - ansible-playbook -l mon deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_print:
+  stage: deploy
+  script:
+    - ansible-playbook -l print deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_file:
+  stage: deploy
+  script:
+    - ansible-playbook -l file deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_repo:
+  stage: deploy
+  script:
+    - ansible-playbook -l repo deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_netinstall:
+  stage: deploy
+  script:
+    - ansible-playbook -l netinstall deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_dhcp:
+  stage: deploy
+  script:
+    - ansible-playbook -l dhcp03 deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_log:
+  stage: deploy
+  script:
+    - ansible-playbook -l log deploy-aldpro.yml --tags="opennebula,client-server"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_dcs-aldpro-astra-0:
+  stage: deploy
+  script:
+    - ansible-playbook -l dcs-aldpro-astra-0 deploy-aldpro.yml --tags="opennebula,client"
+  when: manual
+  tags: 
+    - aldpro
+
+deploy_dcs-aldpro-astra-1:
+  stage: deploy
+  script:
+    - ansible-playbook -l dcs-aldpro-astra-1 deploy-aldpro.yml --tags="opennebula,client"
+  when: manual
+  tags: 
+    - aldpro

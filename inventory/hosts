@@ -1,0 +1,23 @@
+[all:vars]
+ansible_user={{ lookup("env", "ANSIBLE_USER") }}
+ansible_password={{ lookup("env", "ANSIBLE_USER_PASSWORD") }}
+ansible_sudo_pass={{ lookup("env", "ANSIBLE_USER_PASSWORD") }}
+aldpro_admin_password={{ lookup("env", "ALDPRO_ADMIN_PASSWORD") }}
+
+[dc_servers]
+dc01 ansible_host=192.168.45.11
+dc02 ansible_host=192.168.45.12
+
+[role_servers]
+mon ansible_host=192.168.45.13
+print ansible_host=192.168.45.14
+file ansible_host=192.168.45.15
+repo ansible_host=192.168.45.16
+netinstall ansible_host=192.168.45.17
+dhcp ansible_host=192.168.45.18
+audit ansible_host=192.168.45.29
+
+
+[clients]
+client-1 ansible_host=192.168.45.21
+client-2 ansible_host=192.168.45.22
